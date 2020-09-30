@@ -1,3 +1,4 @@
+import json
 import os
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -7,8 +8,7 @@ from itertools import zip_longest
 from pathlib import Path
 
 import toml
-import json
-from brownie import Wei, interface, web3
+from brownie import MerkleDistributor, Wei, accounts, interface, rpc, web3
 from eth_abi import decode_single, encode_single
 from eth_abi.packed import encode_abi_packed
 from eth_utils import encode_hex
@@ -246,6 +246,13 @@ def step_07(balances):
         },
     }
     return distribution
+
+
+def deploy():
+    user = accounts[0] if rpc.is_active() else accounts.load(input('account: '))
+    assert rpc.is_active()
+    tree = json.load(open('snapshot/07-merkle-distribution.json'))
+    MerkleDistributor.deploy(str(DAI), tree['merkleRoot'], {'from': user})
 
 
 def main():
