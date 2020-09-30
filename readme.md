@@ -30,7 +30,7 @@ The snapshot block is chosen to be `10954410`, one block before the first drain 
 
 ## Usage
 
-`MerkleDistributor` has been deployed to mainnet at [`0xfB4d179D144c0390F759bDf4fe6d2891De863CDB`](https://etherscan.io/address/0xfB4d179D144c0390F759bDf4fe6d2891De863CDB)
+`MerkleDistributor` has been deployed to mainnet at [`0x5e37996bcfF8C169e77b00D7b6e7261bbC60761e`](https://etherscan.io/address/0x5e37996bcfF8C169e77b00D7b6e7261bbC60761e)
 
 To claim the distribution:
 ```
