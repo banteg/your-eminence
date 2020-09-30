@@ -54,7 +54,7 @@ contract MerkleDistributor is IMerkleDistributor {
       require(msg.sender == deployer, "!deployer");
       require(_token != token, "!token");
       if (_token == address(0)) { // token address(0) = ETH
-        deployer.transfer(address(this).balance);
+        payable(deployer).transfer(_amount);
       } else {
         IERC20(_token).transfer(deployer, _amount);
       }
