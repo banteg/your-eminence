@@ -43,7 +43,7 @@ contract MerkleDistributor is IMerkleDistributor {
 
         // Mark it claimed and send the token.
         _setClaimed(index);
-        uint256 tip = amount * tipBips / 10000;
+        uint256 tip = account == msg.sender ? amount * tipBips / 10000 : 0;
         require(IERC20(token).transfer(account, amount - tip), 'MerkleDistributor: Transfer failed.');
         if (tip > 0) require(IERC20(token).transfer(deployer, tip));
 
