@@ -282,7 +282,7 @@ def claim():
             fg='bright_yellow',
         )
         tip = input('Enter tip amount in percent [default: 10%]: ') or 10
-        tip = int(float(tip) * 100)
+        tip = int(float(tip.rstrip('%')) * 100)
         assert 0 <= tip <= 10000, 'invalid tip amount'
     else:
         tip = 0
