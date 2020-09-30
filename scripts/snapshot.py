@@ -251,9 +251,10 @@ def step_07(balances):
 
 def deploy():
     user = accounts[0] if rpc.is_active() else accounts.load(input('account: '))
-    assert rpc.is_active()
     tree = json.load(open('snapshot/07-merkle-distribution.json'))
-    MerkleDistributor.deploy(str(DAI), tree['merkleRoot'], {'from': user})
+    root = tree['merkleRoot']
+    token = str(DAI)
+    MerkleDistributor.deploy(token, root, {'from': user})
 
 
 def main():
