@@ -23,6 +23,9 @@ def dai(interface):
 def tree():
     with open('snapshot/07-merkle-distribution.json') as fp:
         claim_data = json.load(fp)
+    for value in claim_data['claims'].values():
+        value['amount'] = int(value['amount'], 16)
+
     return claim_data
 
 

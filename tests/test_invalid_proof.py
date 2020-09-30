@@ -12,7 +12,7 @@ def test_wrong_amount(distributor, ychad, tree, st_claim):
         distributor.claim(
             claim['index'],
             account,
-            int(claim['amount'],  16) + 1,
+            claim['amount'] + 1,
             claim['proof'],
             0,
             {'from': ychad},
