@@ -7,8 +7,8 @@ from os.path import dirname, exists
 
 import toml
 from brownie import Wei, interface, web3
-from eth_abi import decode_single
-from eth_utils import address
+from eth_abi import decode_single, encode_single
+from eth_utils import encode_hex
 from toolz import valfilter, valmap
 from tqdm import tqdm, trange
 
@@ -123,22 +123,38 @@ def step_03(balances):
     return contracts
 
 
-@cached('snapshot/04-uniswap-lp.toml')
+def is_uniswap(address):
+    try:
+        pair = interface.UniswapPair(address)
+        assert pair.factory() == UNISWAP_FACTORY
+        print(f'{address} is a uniswap pool')
+    except (AssertionError, ValueError):
+        return False
+    return True
+
+
+def is_balancer(address):
+    try:
+        pair = interface.BalancerPool(address)
+        assert pair.getColor() == encode_hex(encode_single('bytes32', b'BRONZE'))
+        print(f'{address} is a balancer pool')
+    except (AssertionError, ValueError):
+        return False
+    return True
+
+
+@cached('snapshot/04-uniswap-balancer-lp.toml')
 def step_04(contracts):
-    print('step 04. uniswap lp')
+    print('step 04. uniswap and balancer lp.')
     replacements = {}
     for address in contracts:
-        try:
-            pair = interface.UniswapPair(address)
-            assert pair.factory() == UNISWAP_FACTORY
-            print(f'{address} is uniswap')
-        except (AssertionError, ValueError):
+        if not (is_uniswap(address) or is_balancer(address)):
             continue
 
         # no need to check the pool contents since we already know the equivalent dai value
         # so we just grab the lp share distribution and distirbute the dai pro-rata
 
-        balances = transfers_to_balances(str(pair))
+        balances = transfers_to_balances(address)
         supply = sum(balances.values())
         if not supply:
             continue
@@ -150,7 +166,7 @@ def step_04(contracts):
 
 @cached('snapshot/05-dai-with-lp.toml')
 def step_05(balances, replacements):
-    print('step 05. replace uniswap pools with distribution')
+    print('step 05. replace liquidity pools with their distributions.')
     for remove, additions in replacements.items():
         balances.pop(remove)
         for user, balance in additions.items():
