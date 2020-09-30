@@ -3,11 +3,14 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
 from functools import partial, wraps
-from os.path import dirname, exists
+from itertools import zip_longest
+from pathlib import Path
 
 import toml
+import json
 from brownie import Wei, interface, web3
 from eth_abi import decode_single, encode_single
+from eth_abi.packed import encode_abi_packed
 from eth_utils import encode_hex
 from toolz import valfilter, valmap
 from tqdm import tqdm, trange
@@ -32,18 +35,20 @@ ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 
 def cached(path):
+    path = Path(path)
+    codec = {'.toml': toml, '.json': json}[path.suffix]
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if exists(path):
+            if path.exists():
                 print('load from cache', path)
-                return toml.load(open(path))
+                return codec.loads(path.read_text())
             else:
                 result = func(*args, **kwargs)
-                os.makedirs(dirname(path), exist_ok=True)
-                with open(path, 'wt') as f:
-                    toml.dump(result, f)
-                    print('cached', path)
+                os.makedirs(path.parent, exist_ok=True)
+                path.write_text(codec.dumps(result))
+                print('cached', path)
                 return result
 
         return wrapper
@@ -186,6 +191,66 @@ def step_06(balances):
     return pro_rata
 
 
+class MerkleTree:
+    def __init__(self, elements):
+        self.elements = sorted(set(web3.keccak(hexstr=el) for el in elements))
+        self.layers = MerkleTree.get_layers(self.elements)
+
+    @property
+    def root(self):
+        return self.layers[-1][0]
+
+    def get_proof(self, el):
+        el = web3.keccak(hexstr=el)
+        idx = self.elements.index(el)
+        proof = []
+        for layer in self.layers:
+            pair_idx = idx + 1 if idx % 2 == 0 else idx - 1
+            if pair_idx < len(layer):
+                proof.append(encode_hex(layer[pair_idx]))
+            idx //= 2
+        return proof
+
+    @staticmethod
+    def get_layers(elements):
+        layers = [elements]
+        while len(layers[-1]) > 1:
+            layers.append(MerkleTree.get_next_layer(layers[-1]))
+        return layers
+
+    @staticmethod
+    def get_next_layer(elements):
+        return [MerkleTree.combined_hash(a, b) for a, b in zip_longest(elements[::2], elements[1::2])]
+
+    @staticmethod
+    def combined_hash(a, b):
+        if a is None:
+            return b
+        if b is None:
+            return a
+        return web3.keccak(b''.join(sorted([a, b])))
+
+
+@cached('snapshot/07-merkle-distribution.json')
+def step_07(balances):
+    elements = [(index, account, amount) for index, (account, amount) in enumerate(balances.items())]
+    nodes = [encode_hex(encode_abi_packed(['uint', 'address', 'uint'], el)) for el in elements]
+    print(elements[:10])
+    print(nodes[:10])
+    tree = MerkleTree(nodes)
+    print(tree.get_proof(nodes[-1]))
+    print(tree.root)
+    distribution = {
+        'merkleRoot': encode_hex(tree.root),
+        'tokenTotal': hex(sum(balances.values())),
+        'claims': {
+            user: {'index': index, 'amount': hex(amount), 'proof': tree.get_proof(nodes[index])}
+            for index, user, amount in elements
+        },
+    }
+    return distribution
+
+
 def main():
     token_balances = step_01()
     dai_balances = step_02(token_balances)
@@ -193,3 +258,4 @@ def main():
     replacements = step_04(contracts)
     dai_balances = step_05(dai_balances, replacements)
     dai_pro_rata = step_06(dai_balances)
+    step_07(dai_pro_rata)
