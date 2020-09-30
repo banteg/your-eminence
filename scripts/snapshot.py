@@ -1,11 +1,13 @@
 import json
 import os
 from collections import Counter, defaultdict
+from os.path import exists
 
-from brownie import interface, web3
+from brownie import Wei, interface, web3
+from eth_abi import decode_single
 from eth_utils import address
 from toolz import valfilter, valmap
-from tqdm import trange
+from tqdm import tqdm, trange
 
 START_BLOCK = 10950650
 SNAPSHOT_BLOCK = 10954410
@@ -25,6 +27,10 @@ ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 
 def step_01():
+    output = 'snapshot/01-balances.json'
+    if exists(output):
+        return json.load(open(output))
+
     print('step 01. snapshot token balances.')
     balances = defaultdict(Counter)  # token -> user -> balance
     for name, address in TOKENS.items():
@@ -42,9 +48,46 @@ def step_01():
         balances[name] = valfilter(bool, dict(balances[name].most_common()))
 
     os.makedirs('snapshot', exist_ok=True)
-    with open('snapshot/01-balances.json', 'wt') as f:
-        json.dump(dict(balances), f, indent=2)
+    with open(output, 'wt') as f:
+        json.dump(balances, f, indent=2)
+
+    return balances
+
+
+def ensure_archive_node():
+    fresh = web3.eth.call({'to': str(EMN), 'data': EMN.totalSupply.encode_input()})
+    old = web3.eth.call({'to': str(EMN), 'data': EMN.totalSupply.encode_input()}, SNAPSHOT_BLOCK)
+    assert fresh != old, 'this step requires an archive node'
+
+
+def step_02(balances):
+    output = 'snapshot/02-burn-to-dai.json'
+    if exists(output):
+        return json.load(open(output))
+
+    print('step 02. normalize balances to dai.')
+    ensure_archive_node()
+
+    dai_balances = Counter()  # user -> dai equivalent
+    for name in balances:
+        print(f'processing {name}')
+        for user, balance in tqdm(balances[name].items()):
+            token = TOKENS[name]
+            tx = {'to': str(token), 'data': EMN.calculateContinuousBurnReturn.encode_input(balance)}
+            out = decode_single('uint', web3.eth.call(tx, SNAPSHOT_BLOCK))
+            if name in ['eCRV', 'eLINK', 'eAAVE', 'eYFI', 'eSNX']:
+                tx = {'to': str(EMN), 'data': EMN.calculateContinuousBurnReturn.encode_input(out)}
+                out = decode_single('uint', web3.eth.call(tx, SNAPSHOT_BLOCK))
+            dai_balances[user] += out
+
+    dai_balances = valfilter(bool, dict(dai_balances.most_common()))
+    dai_total = Wei(sum(dai_balances.values())).to('ether')
+    print(f'equivalent value: {dai_total:,.0f} DAI')
+
+    with open(output, 'wt') as f:
+        json.dump(dai_balances, f, indent=2)
 
 
 def main():
-    step_01()
+    balances = step_01()
+    dai_balances = step_02(balances)
