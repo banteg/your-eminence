@@ -30,6 +30,12 @@ The snapshot block is chosen to be `10954410`, one block before the first drain 
 
 ## Usage
 
+To claim the distribution (includes a default tip of 10%):
+```
+brownie accounts import alias keystore.json
+brownie run snapshot claim --network mainnet
+```
+
 All testing is performed in a forked mainnet environment.
 
 To run the unit tests:
@@ -60,3 +66,8 @@ To deploy the distributor on the mainnet:
 ```
 brownie run snapshot deploy --network mainnet
 ```
+
+## Tips
+
+The return of funds to you was made possible by a team of volunteers who worked for free to make this happen.
+Please consider tipping them a portion of your recovered funds as a way to say thank you.
