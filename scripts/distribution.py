@@ -18,7 +18,9 @@ def main():
             print(f"Distribution in progress, {i} / {len(tree['claims'])}...")
 
         balance = dai.balanceOf(address)
-        distributor.claim(claim['index'], address, claim['amount'], claim['proof'], {'from': ychad})
+        distributor.claim(
+            claim['index'], address, claim['amount'], claim['proof'], 0, {'from': ychad}
+        )
 
         assert dai.balanceOf(address) == balance + claim['amount']
 
