@@ -12,6 +12,7 @@ from eth_utils import encode_hex
 from toolz import valfilter, valmap
 from tqdm import tqdm, trange
 
+DISTRIBUTION_AMOUNT = Wei('8000000 ether')
 START_BLOCK = 10950650
 SNAPSHOT_BLOCK = 10954410
 TOKENS = {
@@ -175,9 +176,20 @@ def step_05(balances, replacements):
     return dict(Counter(balances).most_common())
 
 
+@cached('snapshot/06-dai-pro-rata.toml')
+def step_06(balances):
+    print('step 06. pro-rata distribution')
+    total = sum(balances.values())
+    balances = valfilter(lambda value: value >= Wei('1 ether'), balances)
+    pro_rata = {user: int(Fraction(balance, total) * DISTRIBUTION_AMOUNT) for user, balance in balances.items()}
+    assert sum(pro_rata.values()) <= DISTRIBUTION_AMOUNT, 'extravagant expenses ser'
+    return pro_rata
+
+
 def main():
     token_balances = step_01()
     dai_balances = step_02(token_balances)
     contracts = step_03(dai_balances)
     replacements = step_04(contracts)
-    step_05(dai_balances, replacements)
+    dai_balances = step_05(dai_balances, replacements)
+    dai_pro_rata = step_06(dai_balances)
