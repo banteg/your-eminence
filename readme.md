@@ -32,7 +32,7 @@ The snapshot block is chosen to be `10954410`, one block before the first drain 
 
 `MerkleDistributor` has been deployed to mainnet at [`0xfB4d179D144c0390F759bDf4fe6d2891De863CDB`](https://etherscan.io/address/0xfB4d179D144c0390F759bDf4fe6d2891De863CDB)
 
-To claim the distribution (includes a default tip of 10%):
+To claim the distribution:
 ```
 brownie accounts import alias keystore.json
 brownie run snapshot claim --network mainnet
