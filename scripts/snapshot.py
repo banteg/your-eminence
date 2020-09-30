@@ -279,7 +279,7 @@ def claim():
         secho(
             '\nThe return of funds to you was made possible by a team of volunteers who worked for free to make this happen.'
             '\nPlease consider tipping them a portion of your recovered funds as a way to say thank you.\n',
-            fg='bright_yellow',
+            fg='yellow',
         )
         tip = input('Enter tip amount in percent [default: 10%]: ') or 10
         tip = int(float(tip.rstrip('%')) * 100)
