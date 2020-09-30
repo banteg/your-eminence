@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from functools import wraps
 from os.path import dirname, exists
 
+import toml
 from brownie import Wei, interface, web3
 from brownie.exceptions import VirtualMachineError
 from eth_abi import decode_single
@@ -33,12 +34,12 @@ def cached(path):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if exists(path):
-                return json.load(open(path))
+                return toml.load(open(path))
             else:
                 result = func(*args, **kwargs)
                 os.makedirs(dirname(path), exist_ok=True)
                 with open(path, 'wt') as f:
-                    f.write(result)
+                    toml.dump(result, f)
                 return result
 
         return wrapper
@@ -46,7 +47,7 @@ def cached(path):
     return decorator
 
 
-@cached('snapshot/01-balances.json')
+@cached('snapshot/01-balances.toml')
 def step_01():
     print('step 01. snapshot token balances.')
     balances = defaultdict(Counter)  # token -> user -> balance
@@ -73,7 +74,7 @@ def ensure_archive_node():
     assert fresh != old, 'this step requires an archive node'
 
 
-@cached('snapshot/02-burn-to-dai.json')
+@cached('snapshot/02-burn-to-dai.toml')
 def step_02(balances):
     print('step 02. normalize balances to dai.')
     ensure_archive_node()
