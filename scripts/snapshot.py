@@ -245,6 +245,7 @@ def step_07(balances):
             for index, user, amount in elements
         },
     }
+    print(f'merkle root: {encode_hex(tree.root)}')
     return distribution
 
 
