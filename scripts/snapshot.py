@@ -257,6 +257,15 @@ def deploy():
     MerkleDistributor.deploy(token, root, {'from': user})
 
 
+def claim():
+    user = accounts.load(input('account: '))
+    dist = MerkleDistributor.at(input('distributor contract: '))
+    tree = json.load(open('snapshot/07-merkle-distribution.json'))
+    claim = tree['claims'][str(user)]
+    tx = dist.claim(claim['index'], user, claim['amount'], claim['proof'], 1000, {'from': user})
+    tx.info()
+
+
 def main():
     token_balances = step_01()
     dai_balances = step_02(token_balances)
