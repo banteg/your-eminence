@@ -281,7 +281,7 @@ def claim():
             '\nPlease consider tipping them a portion of your recovered funds as a way to say thank you.\n',
             fg='yellow',
         )
-        tip = input('Enter tip amount in percent [default: 10%]: ') or 10
+        tip = input('Enter tip amount in percent: ')
         tip = int(float(tip.rstrip('%')) * 100)
         assert 0 <= tip <= 10000, 'invalid tip amount'
     else:
