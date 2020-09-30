@@ -49,4 +49,14 @@ contract MerkleDistributor is IMerkleDistributor {
 
         emit Claimed(index, account, amount);
     }
+
+    function collectDust(address _token, uint256 _amount) external {
+      require(msg.sender == deployer, "!deployer");
+      require(_token != token, "!token");
+      if (_token == address(0)) { // token address(0) = ETH
+        deployer.transfer(address(this).balance);
+      } else {
+        IERC20(_token).transfer(deployer, _amount);
+      }
+    }
 }
