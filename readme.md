@@ -30,6 +30,16 @@ The snapshot block is chosen to be `10954410`, one block before the first drain 
 
 ## Usage
 
+All testing is performed in a forked mainnet environment.
+
+To run the unit tests:
+
+```
+brownie test
+```
+
+To generate the snapshot data:
+
 ```
 pip install -r requirements.txt
 
@@ -37,8 +47,16 @@ brownie networks add Ethereum archive host=$YOUR_ARCHIVE_NODE chainid=1
 
 rm -rf snapshot
 brownie run snapshot --network archive
+```
 
-brownie test
+To validate the snapshot with an end-to-end test distribution:
 
-brownie run snapshot deploy --network archive
+```
+brownie run distribution
+```
+
+To deploy the distributor on the mainnet:
+
+```
+brownie run snapshot deploy --network mainnet
 ```
