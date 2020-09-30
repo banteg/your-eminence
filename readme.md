@@ -26,3 +26,16 @@ Since everyone starts from the same point on the curve and the burns don't move 
 To calculate the DAI value of EMN-bonded e-tokens, we just repeat the process twice, burn to EMN, then burn to DAI.
 
 The snapshot block is chosen to be `10954410`, one block before the first drain transaction.
+
+## Usage
+
+```
+brownie networks add Ethereum archive host=$YOUR_ARCHIVE_NODE chainid=1
+
+rm -rf snapshot
+brownie run snapshot --network archive
+
+brownie test
+
+brownie run snapshot deploy --network archive
+```
