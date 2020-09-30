@@ -1,4 +1,3 @@
-import json
 import random
 import brownie
 from brownie import Wei
