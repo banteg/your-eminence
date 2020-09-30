@@ -14,6 +14,7 @@ def test_wrong_amount(distributor, ychad, tree, st_claim):
             account,
             int(claim['amount'],  16) + 1,
             claim['proof'],
+            0,
             {'from': ychad},
         )
 
@@ -30,6 +31,7 @@ def test_wrong_index(distributor, ychad, tree, st_claim):
             account,
             claim['amount'],
             claim['proof'],
+            0,
             {'from': ychad},
         )
 
@@ -49,5 +51,6 @@ def test_wrong_address(distributor, ychad, tree, st_claim, st_account):
             st_account,
             claim['amount'],
             claim['proof'],
+            0,
             {'from': ychad}
         )
