@@ -38,6 +38,8 @@ brownie accounts import alias keystore.json
 brownie run snapshot claim --network mainnet
 ```
 
+Or claim using [youreminence.finance](https://youreminence.finance/).
+
 All testing is performed in a forked mainnet environment.
 
 To run the unit tests:
