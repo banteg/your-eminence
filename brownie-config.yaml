@@ -1,5 +1,9 @@
 networks:
-  default: archive
+  default: mainnet-fork
+  mainnet-fork:
+    cmd_settings:
+      unlock:
+        - 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
 dependencies:
   - OpenZeppelin/openzeppelin-contracts@3.1.0
 compiler:
