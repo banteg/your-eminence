@@ -9,7 +9,7 @@ def test_claim(distributor, tree, dai, st_claim):
     claim = tree['claims'][account]
 
     initial_balance = dai.balanceOf(account)
-    distributor.claim(claim['index'], account, claim['amount'], claim['proof'], {'from': account})
+    distributor.claim(claim['index'], account, claim['amount'], claim['proof'], 0, {'from': account})
 
     assert dai.balanceOf(account) == initial_balance + claim['amount']
 
@@ -25,7 +25,7 @@ def test_claim_via_different_account(distributor, tree, dai, st_claim, st_accoun
 
     initial_balance = dai.balanceOf(account)
     distributor.claim(
-        claim['index'], account, claim['amount'], claim['proof'], {'from': st_account}
+        claim['index'], account, claim['amount'], claim['proof'], 0, {'from': st_account}
     )
 
     assert dai.balanceOf(account) == initial_balance + claim['amount']
@@ -37,9 +37,9 @@ def test_claim_twice(distributor, tree, dai, st_claim):
     account = sorted(tree["claims"])[idx]
     claim = tree['claims'][account]
 
-    distributor.claim(claim['index'], account, claim['amount'], claim['proof'], {'from': account})
+    distributor.claim(claim['index'], account, claim['amount'], claim['proof'], 0, {'from': account})
 
     with brownie.reverts('MerkleDistributor: Drop already claimed.'):
         distributor.claim(
-            claim['index'], account, claim['amount'], claim['proof'], {'from': account}
+            claim['index'], account, claim['amount'], claim['proof'], 0, {'from': account}
         )
