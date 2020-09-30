@@ -1,9 +1,11 @@
 import json
 import os
 from collections import Counter, defaultdict
-from os.path import exists
+from functools import wraps
+from os.path import dirname, exists
 
 from brownie import Wei, interface, web3
+from brownie.exceptions import VirtualMachineError
 from eth_abi import decode_single
 from eth_utils import address
 from toolz import valfilter, valmap
@@ -26,11 +28,26 @@ DAI = interface.ERC20('0x6B175474E89094C44Da98b954EedeAC495271d0F')
 ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 
-def step_01():
-    output = 'snapshot/01-balances.json'
-    if exists(output):
-        return json.load(open(output))
+def cached(path):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if exists(path):
+                return json.load(open(path))
+            else:
+                result = func(*args, **kwargs)
+                os.makedirs(dirname(path), exist_ok=True)
+                with open(path, 'wt') as f:
+                    f.write(result)
+                return result
 
+        return wrapper
+
+    return decorator
+
+
+@cached('snapshot/01-balances.json')
+def step_01():
     print('step 01. snapshot token balances.')
     balances = defaultdict(Counter)  # token -> user -> balance
     for name, address in TOKENS.items():
@@ -47,10 +64,6 @@ def step_01():
         assert min(balances[name].values()) >= 0, 'negative balances found'
         balances[name] = valfilter(bool, dict(balances[name].most_common()))
 
-    os.makedirs('snapshot', exist_ok=True)
-    with open(output, 'wt') as f:
-        json.dump(balances, f, indent=2)
-
     return balances
 
 
@@ -60,11 +73,8 @@ def ensure_archive_node():
     assert fresh != old, 'this step requires an archive node'
 
 
+@cached('snapshot/02-burn-to-dai.json')
 def step_02(balances):
-    output = 'snapshot/02-burn-to-dai.json'
-    if exists(output):
-        return json.load(open(output))
-
     print('step 02. normalize balances to dai.')
     ensure_archive_node()
 
@@ -75,7 +85,7 @@ def step_02(balances):
             token = TOKENS[name]
             tx = {'to': str(token), 'data': EMN.calculateContinuousBurnReturn.encode_input(balance)}
             out = decode_single('uint', web3.eth.call(tx, SNAPSHOT_BLOCK))
-            if name in ['eCRV', 'eLINK', 'eAAVE', 'eYFI', 'eSNX']:
+            if name in {'eCRV', 'eLINK', 'eAAVE', 'eYFI', 'eSNX'}:
                 tx = {'to': str(EMN), 'data': EMN.calculateContinuousBurnReturn.encode_input(out)}
                 out = decode_single('uint', web3.eth.call(tx, SNAPSHOT_BLOCK))
             dai_balances[user] += out
@@ -84,10 +94,19 @@ def step_02(balances):
     dai_total = Wei(sum(dai_balances.values())).to('ether')
     print(f'equivalent value: {dai_total:,.0f} DAI')
 
-    with open(output, 'wt') as f:
-        json.dump(dai_balances, f, indent=2)
+    return dai_balances
+
+
+def step_03(dai_balances):
+    print('step 03. unwrap uniswap lp.')
+    ensure_archive_node()
+    for user, balance in tqdm(dai_balances.items()):
+        if not web3.eth.getCode(user):
+            continue
+        print(f'{user} is a contract')
 
 
 def main():
     balances = step_01()
     dai_balances = step_02(balances)
+    step_03(dai_balances)
