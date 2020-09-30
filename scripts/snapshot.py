@@ -37,6 +37,7 @@ ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 def cached(path):
     path = Path(path)
     codec = {'.toml': toml, '.json': json}[path.suffix]
+    codec_args = {'.json': {'indent': 2}}.get(path.suffix, {})
 
     def decorator(func):
         @wraps(func)
@@ -47,8 +48,8 @@ def cached(path):
             else:
                 result = func(*args, **kwargs)
                 os.makedirs(path.parent, exist_ok=True)
-                path.write_text(codec.dumps(result))
-                print('cached', path)
+                path.write_text(codec.dumps(result, **codec_args))
+                print('write to cache', path)
                 return result
 
         return wrapper
@@ -235,11 +236,7 @@ class MerkleTree:
 def step_07(balances):
     elements = [(index, account, amount) for index, (account, amount) in enumerate(balances.items())]
     nodes = [encode_hex(encode_abi_packed(['uint', 'address', 'uint'], el)) for el in elements]
-    print(elements[:10])
-    print(nodes[:10])
     tree = MerkleTree(nodes)
-    print(tree.get_proof(nodes[-1]))
-    print(tree.root)
     distribution = {
         'merkleRoot': encode_hex(tree.root),
         'tokenTotal': hex(sum(balances.values())),
