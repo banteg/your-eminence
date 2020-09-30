@@ -2,21 +2,33 @@ import json
 import pytest
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
+def isolation_setup(fn_isolation):
+    # enable function isolation
+    pass
+
+
+@pytest.fixture(scope="session")
 def ychad(accounts):
+    # the hero of our story
     return accounts[-1]
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dai(interface):
     return interface.ERC20('0x6B175474E89094C44Da98b954EedeAC495271d0F')
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def tree():
-    return json.load(open('snapshot/07-merkle-distribution.json'))
+    with open('snapshot/07-merkle-distribution.json') as fp:
+        claim_data = json.load(fp)
+    return claim_data
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def distributor(MerkleDistributor, ychad, tree, dai):
-    return MerkleDistributor.deploy(str(dai), tree['merkleRoot'], {'from': ychad})
+    contract = MerkleDistributor.deploy(dai, tree['merkleRoot'], {'from': ychad})
+    dai.transfer(contract, tree['tokenTotal'], {'from': ychad})
+
+    return contract
