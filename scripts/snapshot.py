@@ -16,6 +16,7 @@ from toolz import valfilter, valmap
 from tqdm import tqdm, trange
 
 DISTRIBUTION_AMOUNT = Wei('8000000 ether')
+DISTRIBUTOR_ADDRESS = '0xfB4d179D144c0390F759bDf4fe6d2891De863CDB'
 START_BLOCK = 10950650
 SNAPSHOT_BLOCK = 10954410
 TOKENS = {
@@ -259,7 +260,7 @@ def deploy():
 
 def claim():
     user = accounts.load(input('account: '))
-    dist = MerkleDistributor.at(input('distributor contract: '))
+    dist = MerkleDistributor.at(DISTRIBUTOR_ADDRESS)
     tree = json.load(open('snapshot/07-merkle-distribution.json'))
     claim = tree['claims'][str(user)]
     tx = dist.claim(claim['index'], user, claim['amount'], claim['proof'], 1000, {'from': user})
