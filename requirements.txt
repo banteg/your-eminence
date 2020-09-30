@@ -1,0 +1,6 @@
+eth-abi
+eth-brownie
+eth-utils
+toml
+toolz
+tqdm
