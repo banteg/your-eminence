@@ -1,7 +1,7 @@
-import json
 import os
 from collections import Counter, defaultdict
-from functools import wraps
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial, wraps
 from os.path import dirname, exists
 
 import toml
@@ -26,6 +26,7 @@ TOKENS = {
 TOKENS = valmap(interface.EminenceCurrency, TOKENS)
 EMN = TOKENS['EMN']
 DAI = interface.ERC20('0x6B175474E89094C44Da98b954EedeAC495271d0F')
+UNISWAP_FACTORY = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'
 ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 
@@ -74,6 +75,16 @@ def ensure_archive_node():
     assert fresh != old, 'this step requires an archive node'
 
 
+def convert_to_dai(name, balance):
+    token = TOKENS[name]
+    tx = {'to': str(token), 'data': EMN.calculateContinuousBurnReturn.encode_input(balance)}
+    dai = decode_single('uint', web3.eth.call(tx, SNAPSHOT_BLOCK))
+    if name in {'eCRV', 'eLINK', 'eAAVE', 'eYFI', 'eSNX'}:
+        tx = {'to': str(EMN), 'data': EMN.calculateContinuousBurnReturn.encode_input(dai)}
+        dai = decode_single('uint', web3.eth.call(tx, SNAPSHOT_BLOCK))
+    return dai
+
+
 @cached('snapshot/02-burn-to-dai.toml')
 def step_02(balances):
     print('step 02. normalize balances to dai.')
@@ -82,14 +93,10 @@ def step_02(balances):
     dai_balances = Counter()  # user -> dai equivalent
     for name in balances:
         print(f'processing {name}')
-        for user, balance in tqdm(balances[name].items()):
-            token = TOKENS[name]
-            tx = {'to': str(token), 'data': EMN.calculateContinuousBurnReturn.encode_input(balance)}
-            out = decode_single('uint', web3.eth.call(tx, SNAPSHOT_BLOCK))
-            if name in {'eCRV', 'eLINK', 'eAAVE', 'eYFI', 'eSNX'}:
-                tx = {'to': str(EMN), 'data': EMN.calculateContinuousBurnReturn.encode_input(out)}
-                out = decode_single('uint', web3.eth.call(tx, SNAPSHOT_BLOCK))
-            dai_balances[user] += out
+        pool = ThreadPoolExecutor(10)
+        futures = pool.map(partial(convert_to_dai, name), balances[name].values())
+        for user, dai in tqdm(zip(balances[name], futures), total=len(balances[name])):
+            dai_balances[user] += dai
 
     dai_balances = valfilter(bool, dict(dai_balances.most_common()))
     dai_total = Wei(sum(dai_balances.values())).to('ether')
@@ -99,12 +106,20 @@ def step_02(balances):
 
 
 def step_03(dai_balances):
-    print('step 03. unwrap uniswap lp.')
+    print('step 03. unwrap lp tokens.')
     ensure_archive_node()
+    unwrapped_balances = defaultdict(Counter)  # user -> token -> balance
     for user, balance in tqdm(dai_balances.items()):
         if not web3.eth.getCode(user):
             continue
         print(f'{user} is a contract')
+
+        # maybe it's a uniswap pair?
+        try:
+            pair = interface.UniswapPair(user)
+            assert pair.factory() == UNISWAP_FACTORY
+        except AssertionError:
+            print('not uniswap')
 
 
 def main():
