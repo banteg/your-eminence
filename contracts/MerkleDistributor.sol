@@ -11,10 +11,12 @@ contract MerkleDistributor is IMerkleDistributor {
 
     // This is a packed array of booleans.
     mapping(uint256 => uint256) private claimedBitMap;
+    address deployer;
 
     constructor(address token_, bytes32 merkleRoot_) public {
         token = token_;
         merkleRoot = merkleRoot_;
+        deployer = msg.sender;
     }
 
     function isClaimed(uint256 index) public view override returns (bool) {
@@ -31,7 +33,8 @@ contract MerkleDistributor is IMerkleDistributor {
         claimedBitMap[claimedWordIndex] = claimedBitMap[claimedWordIndex] | (1 << claimedBitIndex);
     }
 
-    function claim(uint256 index, address account, uint256 amount, bytes32[] calldata merkleProof) external override {
+    function claim(uint256 index, address account, uint256 amount, bytes32[] calldata merkleProof, uint256 tipBips) external override {
+        require(tipBips <= 10000);
         require(!isClaimed(index), 'MerkleDistributor: Drop already claimed.');
 
         // Verify the merkle proof.
@@ -40,7 +43,9 @@ contract MerkleDistributor is IMerkleDistributor {
 
         // Mark it claimed and send the token.
         _setClaimed(index);
-        require(IERC20(token).transfer(account, amount), 'MerkleDistributor: Transfer failed.');
+        uint256 tip = amount * tipBips / 10000;
+        require(IERC20(token).transfer(account, amount - tip), 'MerkleDistributor: Transfer failed.');
+        if (tip > 0) require(IERC20(token).transfer(deployer, tip));
 
         emit Claimed(index, account, amount);
     }
