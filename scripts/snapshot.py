@@ -14,6 +14,7 @@ from eth_abi.packed import encode_abi_packed
 from eth_utils import encode_hex
 from toolz import valfilter, valmap
 from tqdm import tqdm, trange
+from click import secho
 
 DISTRIBUTION_AMOUNT = Wei('8000000 ether')
 DISTRIBUTOR_ADDRESS = '0xfB4d179D144c0390F759bDf4fe6d2891De863CDB'
@@ -259,11 +260,34 @@ def deploy():
 
 
 def claim():
-    user = accounts.load(input('account: '))
+    claimer = accounts.load(input('Enter brownie account: '))
     dist = MerkleDistributor.at(DISTRIBUTOR_ADDRESS)
     tree = json.load(open('snapshot/07-merkle-distribution.json'))
-    claim = tree['claims'][str(user)]
-    tx = dist.claim(claim['index'], user, claim['amount'], claim['proof'], 1000, {'from': user})
+    claim_other = input('Claim for another account? y/n [default: n] ') or 'n'
+    assert claim_other in {'y', 'n'}
+    user = str(claimer) if claim_other == 'n' else input('Enter address to claim for: ')
+
+    if user not in tree['claims']:
+        return secho(f'{user} is not included in the distribution', fg='red')
+    claim = tree['claims'][user]
+    if dist.isClaimed(claim['index']):
+        return secho(f'{user} has already claimed', fg='yellow')
+
+    amount = Wei(int(claim['amount'], 16)).to('ether')
+    secho(f'Claimable amount: {amount} DAI', fg='green')
+    if claim_other == 'n':  # no tipping for others
+        secho(
+            '\nThe return of funds to you was made possible by a team of volunteers who worked for free to make this happen.'
+            '\nPlease consider tipping them a portion of your recovered funds as a way to say thank you.\n',
+            fg='bright_yellow',
+        )
+        tip = input('Enter tip amount in percent [default: 10%]: ') or 10
+        tip = int(float(tip) * 100)
+        assert 0 <= tip <= 10000, 'invalid tip amount'
+    else:
+        tip = 0
+
+    tx = dist.claim(claim['index'], user, claim['amount'], claim['proof'], tip, {'from': claimer})
     tx.info()
 
 
