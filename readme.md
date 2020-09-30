@@ -6,9 +6,10 @@ This is a working repo for distributing 8 million DAI sent back by Eminence hack
 
 ## Background
 
-After people have put over 15 million DAI in Eminence bonding curve, someone has exploited it to drain the funds.
+After people put over 15 million DAI in Eminence bonding curve, someone exploited it to drain the funds.
 There were three transactions ([1](https://etherscan.io/tx/0x3503253131644dd9f52802d071de74e456570374d586ddd640159cf6fb9b8ad8), [2](https://etherscan.io/tx/0x045b60411af18114f1986957a41296ba2a97ccff75a9b38af818800ea9da0b2a), [3](https://etherscan.io/tx/0x4f0f495dbcb58b452f268b9149a418524e43b13b55e780673c10b3b755340317)) draining 15,015,533 DAI in total.
-Shortly after the attacker [has sent](https://etherscan.io/tx/0x7bc97357364222207f1f011b22ad98ba78fcd3c25d3398346caa3928cdf4a4dd) 8,000,000 DAI to Andre, who has then [sent them](https://etherscan.io/tx/0x8a1fc0a078b7c1fc2338d0922d54da9e033ec4e814100a4a67e94fde3793d1a8) to yearn multisig and tasked it with distributing the funds.
+Shortly after, the attacker [sent](https://etherscan.io/tx/0x7bc97357364222207f1f011b22ad98ba78fcd3c25d3398346caa3928cdf4a4dd) 8,000,000 DAI to Andre, who then [sent them](https://etherscan.io/tx/0x8a1fc0a078b7c1fc2338d0922d54da9e033ec4e814100a4a67e94fde3793d1a8) to the yearn multisig and tasked it with distributing the funds.
+
 
 ## Distribution details
 
@@ -30,6 +31,8 @@ The snapshot block is chosen to be `10954410`, one block before the first drain 
 ## Usage
 
 ```
+pip install -r requirements.txt
+
 brownie networks add Ethereum archive host=$YOUR_ARCHIVE_NODE chainid=1
 
 rm -rf snapshot
