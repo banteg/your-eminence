@@ -35,12 +35,14 @@ def cached(path):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if exists(path):
+                print('load from cache', path)
                 return toml.load(open(path))
             else:
                 result = func(*args, **kwargs)
                 os.makedirs(dirname(path), exist_ok=True)
                 with open(path, 'wt') as f:
                     toml.dump(result, f)
+                    print('cached', path)
                 return result
 
         return wrapper
@@ -105,24 +107,17 @@ def step_02(balances):
     return dai_balances
 
 
-def step_03(dai_balances):
-    print('step 03. unwrap lp tokens.')
-    ensure_archive_node()
-    unwrapped_balances = defaultdict(Counter)  # user -> token -> balance
-    for user, balance in tqdm(dai_balances.items()):
-        if not web3.eth.getCode(user):
-            continue
-        print(f'{user} is a contract')
-
-        # maybe it's a uniswap pair?
-        try:
-            pair = interface.UniswapPair(user)
-            assert pair.factory() == UNISWAP_FACTORY
-        except AssertionError:
-            print('not uniswap')
+@cached('snapshot/03-contracts.toml')
+def step_03(balances):
+    print('step 03. contract addresses.')
+    pool = ThreadPoolExecutor(10)
+    codes = pool.map(web3.eth.getCode, balances)
+    contracts = {user: balances[user] for user, code in tqdm(zip(balances, codes), total=len(balances)) if code}
+    print(f'{len(contracts)} contracts found')
+    return contracts
 
 
 def main():
     balances = step_01()
     dai_balances = step_02(balances)
-    step_03(dai_balances)
+    contracts = step_03(dai_balances)
