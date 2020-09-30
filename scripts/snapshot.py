@@ -1,12 +1,12 @@
 import os
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from fractions import Fraction
 from functools import partial, wraps
 from os.path import dirname, exists
 
 import toml
 from brownie import Wei, interface, web3
-from brownie.exceptions import VirtualMachineError
 from eth_abi import decode_single
 from eth_utils import address
 from toolz import valfilter, valmap
@@ -50,23 +50,29 @@ def cached(path):
     return decorator
 
 
+def transfers_to_balances(address):
+    balances = Counter()
+    contract = web3.eth.contract(address, abi=DAI.abi)
+    for start in trange(START_BLOCK, SNAPSHOT_BLOCK, 1000):
+        end = min(start + 999, SNAPSHOT_BLOCK)
+        logs = contract.events.Transfer().getLogs(fromBlock=start, toBlock=end)
+        for log in logs:
+            if log['args']['src'] != ZERO_ADDRESS:
+                balances[log['args']['src']] -= log['args']['wad']
+            if log['args']['dst'] != ZERO_ADDRESS:
+                balances[log['args']['dst']] += log['args']['wad']
+
+    return valfilter(bool, dict(balances.most_common()))
+
+
 @cached('snapshot/01-balances.toml')
 def step_01():
     print('step 01. snapshot token balances.')
     balances = defaultdict(Counter)  # token -> user -> balance
     for name, address in TOKENS.items():
         print(f'processing {name}')
-        contract = web3.eth.contract(str(address), abi=EMN.abi)
-        for start in trange(START_BLOCK, SNAPSHOT_BLOCK, 1000):
-            end = min(start + 999, SNAPSHOT_BLOCK)
-            logs = contract.events.Transfer().getLogs(fromBlock=start, toBlock=end)
-            for log in logs:
-                if log['args']['from'] != ZERO_ADDRESS:
-                    balances[name][log['args']['from']] -= log['args']['value']
-                if log['args']['to'] != ZERO_ADDRESS:
-                    balances[name][log['args']['to']] += log['args']['value']
+        balances[name] = transfers_to_balances(str(address))
         assert min(balances[name].values()) >= 0, 'negative balances found'
-        balances[name] = valfilter(bool, dict(balances[name].most_common()))
 
     return balances
 
@@ -117,7 +123,45 @@ def step_03(balances):
     return contracts
 
 
+@cached('snapshot/04-uniswap-lp.toml')
+def step_04(contracts):
+    print('step 04. uniswap lp')
+    replacements = {}
+    for address in contracts:
+        try:
+            pair = interface.UniswapPair(address)
+            assert pair.factory() == UNISWAP_FACTORY
+            print(f'{address} is uniswap')
+        except (AssertionError, ValueError):
+            continue
+
+        # no need to check the pool contents since we already know the equivalent dai value
+        # so we just grab the lp share distribution and distirbute the dai pro-rata
+
+        balances = transfers_to_balances(str(pair))
+        supply = sum(balances.values())
+        if not supply:
+            continue
+        replacements[address] = {user: int(Fraction(balances[user], supply) * contracts[address]) for user in balances}
+        assert sum(replacements[address].values()) <= contracts[address], 'no inflation ser'
+
+    return replacements
+
+
+@cached('snapshot/05-dai-with-lp.toml')
+def step_05(balances, replacements):
+    print('step 05. replace uniswap pools with distribution')
+    for remove, additions in replacements.items():
+        balances.pop(remove)
+        for user, balance in additions.items():
+            balances.setdefault(user, 0)
+            balances[user] += balance
+    return dict(Counter(balances).most_common())
+
+
 def main():
-    balances = step_01()
-    dai_balances = step_02(balances)
+    token_balances = step_01()
+    dai_balances = step_02(token_balances)
     contracts = step_03(dai_balances)
+    replacements = step_04(contracts)
+    step_05(dai_balances, replacements)
