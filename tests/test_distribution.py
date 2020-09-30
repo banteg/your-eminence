@@ -1,8 +1,7 @@
 import json
 import random
-import pytest
+import brownie
 from brownie import Wei
-from brownie.exceptions import VirtualMachineError
 
 
 def test_merkle(distributor, tree, dai, ychad):
@@ -16,8 +15,8 @@ def test_merkle(distributor, tree, dai, ychad):
     assert 'Claimed' in tx.events
     assert dai.balanceOf(account) == Wei(claim['amount'])
 
-    with pytest.raises(VirtualMachineError):
+    with brownie.reverts('MerkleDistributor: Drop already claimed.'):
         tx = distributor.claim(claim['index'], account, claim['amount'], claim['proof'])
 
-    with pytest.raises(VirtualMachineError):
+    with brownie.reverts('MerkleDistributor: Invalid proof.'):
         tx = distributor.claim(123, ychad, '1000000 ether', claim['proof'])
